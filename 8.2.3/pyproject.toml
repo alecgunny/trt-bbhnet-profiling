@@ -1,0 +1,26 @@
+[tool.poetry]
+name = "eighttwothree"
+version = "0.0.1"
+description = "Profiling TensorRT inference of 1D convolutional network"
+authors = ["Alec Gunny"]
+
+[tool.pinto]
+cuda-version = "11.2"
+
+[tool.poetry.dependencies]
+python = ">=3.8,<3.11"
+nvidia-tensorrt = {version = "8.2.3", source = "ngc" }
+torch = {version = "^1.10", source = "torch"}
+
+[[tool.poetry.source]]
+# NVIDIA pypi repo for tensorrt install
+name = "ngc"
+url = "https://pypi.ngc.nvidia.com"
+
+[[tool.poetry.source]]
+name = "torch"
+url = "https://download.pytorch.org/whl/cu116"
+
+[build-system]
+requires = ["poetry>=1.2"]
+build-backend = "poetry.core.masonry.api"
