@@ -4,8 +4,14 @@ version = "0.0.1"
 description = "Profiling TensorRT inference of 1D convolutional network"
 authors = ["Alec Gunny"]
 
+[tool.poetry.scripts]
+trtprof = "eightfiveone:main"
+
 [tool.poetry.dependencies]
 python = ">=3.8,<3.11"
+trtprof = {path = "../profile", develop = true}
+"hermes.quiver" = {path = "../hermes/hermes/hermes.quiver", develop = true}
+
 tensorrt = "8.5.1.7"
 torch = "^1.10"
 

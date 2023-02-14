@@ -7,9 +7,15 @@ authors = ["Alec Gunny"]
 [tool.pinto]
 cuda-version = "11.2"
 
+[tool.poetry.scripts]
+trtprof = "eighttwothree:main"
+
 [tool.poetry.dependencies]
 python = ">=3.8,<3.11"
-nvidia-tensorrt = {version = "8.2.3", source = "ngc" }
+trtprof = {path = "../profile", develop = true}
+"hermes.quiver" = {path = "../hermes/hermes/hermes.quiver", develop = true}
+
+nvidia-tensorrt = {version = "<8.2.4", source = "ngc" }
 torch = {version = "^1.10", source = "torch"}
 
 [[tool.poetry.source]]

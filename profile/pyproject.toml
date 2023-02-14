@@ -1,5 +1,5 @@
 [tool.poetry]
-name = "profile"
+name = "trtprof"
 version = "0.0.1"
 description = "Profiling TensorRT inference of 1D convolutional network"
 authors = ["Alec Gunny"]
@@ -10,11 +10,12 @@ profile = "profile.profile:main"
 [tool.poetry.dependencies]
 python = ">=3.8,<3.11"
 torch = "^1.10"
+numpy = "<1.22.4"
 typeo = {git = "https://github.com/ML4GW/typeo.git", branch = "main"}
 
-[tool.poetry.dependencies."hermes.quiver"]
-path = "../hermes/hermes/hermes.quiver"
-develop = true
+# [tool.poetry.dependencies."hermes.quiver"]
+# path = "../hermes/hermes/hermes.quiver"
+# develop = true
 
 [build-system]
 requires = ["poetry>=1.2"]

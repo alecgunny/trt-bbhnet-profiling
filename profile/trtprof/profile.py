@@ -1,5 +1,7 @@
 import ctypes
+import os
 import time
+from packaging import version
 from tempfile import TemporaryDirectory
 
 import tensorrt as trt
@@ -7,7 +9,9 @@ import torch
 from typeo import scriptify
 from hermes.quiver import ModelRepository, Platform
 
-from profile.architecture import ResNet
+from trtprof.architecture import ResNet
+
+IS_823 = version.parse(trt.__version__) == version.parse("8.2.3")
 
 
 def export_model(
@@ -32,7 +36,7 @@ def export_model(
             output_names=["output"],
             use_fp16=use_fp16
         )
-        with open(binary_path, "rb") as f:
+        with open(f"{tmpdir}/{binary_path}", "rb") as f:
             return f.read()
 
 
@@ -51,13 +55,19 @@ def benchmark(
 
         input = torch.randn(batch_size, num_channels, frame_length).to("cuda")
         output = torch.zeros((128, 1), dtype=torch.float32, device="cuda")
-        context.set_tensor_address("input", input.data_ptr())
-        context.set_tensor_address("output", output.data_ptr())
+        if not IS_823:
+            context.set_tensor_address("input", input.data_ptr())
+            context.set_tensor_address("output", output.data_ptr())
+        else:
+            buffers = [input.data_ptr(), output.data_ptr()]
 
         # execute inference on device
         start_time = time.time()
         for i in range(N):
-            context.execute_async_v3(stream_ptr)
+            if not IS_823:
+                context.execute_async_v3(stream_ptr)
+            else:
+                context.execute_async_v2(buffers, stream_ptr)
 
         # synchronize the execution stream
         stream.synchronize()
@@ -72,8 +82,12 @@ def main(
     num_channels: int = 2,
     frame_length: int = 2048,
     N: int = 10000
+    fname: str
 ) -> None:
     print(f"Using TensorRT version {trt.__version__}")
+    if not os.path.exists(fname):
+        with open(fname, "w") as f:
+            f.write("version,norm,precision,throughput")
 
     trt.init_libnvinfer_plugins(None, "")
     for batch_norm in [True, False]:
@@ -98,6 +112,13 @@ def main(
                     engine, batch_size, num_channels, frame_length, N
                 )
                 print(f"\tThroughput: {throughput} inf/s")
+            with open(fname, "a") as f:
+                f.write("{},{},{},{}\n".format(
+                    trt.__version__,
+                    "batch" if batch_norm else "group",
+                    "fp16" if use_fp16 else "fp32",
+                    throughput
+                ))
 
 
 if __name__ == "__main__":
