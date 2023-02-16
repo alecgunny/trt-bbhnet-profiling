@@ -5,9 +5,52 @@ import torch.nn as nn
 from torch import Tensor
 
 
+class FasterGroupNorm(torch.nn.Module):
+    def __init__(self, groupnorm):
+        super().__init__()
+        self.num_channels = groupnorm.num_channels
+        self.num_groups = groupnorm.num_groups
+        self.channels_per_group = self.num_channels // self.num_groups
+
+        shape = (self.num_channels, 1)
+        self.weight = torch.nn.Parameter(torch.ones(shape))
+        self.bias = torch.nn.Parameter(torch.zeros(shape))
+
+    def _group_means(self, x):
+        x = x.reshape(-1, 2, self.num_groups, self.channels_per_group)
+        x = x.mean(-1, keepdims=True)
+        x = x.expand(-1, -1, -1, self.channels_per_group)
+        x = x.reshape(-1, 2, self.num_channels, 1)
+        return x
+
+    def forward(self, x):
+        keepdims = self.num_groups == self.num_channels
+        means = x.mean(-1, keepdims=keepdims)
+        means_sq = (x**2).mean(-1, keepdims=keepdims)
+        if self.num_groups != self.num_channels:
+            means = torch.stack([means, means_sq], dim=1)
+            means = self._group_means(means)
+            means, means_sq = means[:, 0], means[:, 1]
+
+        var = (means_sq - means**2 + 1e-5)**0.5
+        weight = self.weight / var
+        normed = self.bias + weight * (x - means)
+        return normed
+
+
 def get_norm_layer(groups: int) -> nn.Module:
     if groups == 0:
         return nn.BatchNorm1d
+    elif groups < 0:
+        if groups == -1:
+            use_custom = True
+        else:
+            return nn.InstanceNorm1d
+    elif groups == 1:
+        groups = 8
+        use_custom = True
+    else:
+        use_custom = False
 
     class GroupNorm(nn.GroupNorm):
         def __init__(self, num_channels: int) -> None:
@@ -17,7 +60,7 @@ def get_norm_layer(groups: int) -> nn.Module:
                 num_groups = min(num_channels, groups)
             super().__init__(num_groups, num_channels)
 
-    return GroupNorm
+    return (lambda i: FasterGroupNorm(GroupNorm(i))) if use_custom else GroupNorm
 
 
 def convN(

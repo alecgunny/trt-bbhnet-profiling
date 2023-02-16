@@ -18,15 +18,16 @@ def export_model(
     batch_size: int,
     num_channels: int,
     frame_length: int,
-    batch_norm: bool = False,
+    groups: int,
     use_fp16: bool = False
 ):
     nn = ResNet(
         num_ifos=num_channels,
         layers=[2, 2, 2, 2],
         kernel_size=7,
-        norm_groups=0 if batch_norm else 8
+        norm_groups=groups
     )
+    # nn.eval()
     with TemporaryDirectory() as tmpdir:
         repo = ModelRepository(tmpdir)
         model = repo.add("model", platform=Platform.TENSORRT)
@@ -78,11 +79,11 @@ def benchmark(
 
 @scriptify
 def main(
+    fname: str,
     batch_size: int = 128,
     num_channels: int = 2,
     frame_length: int = 2048,
-    N: int = 10000
-    fname: str
+    N: int = 10000,
 ) -> None:
     print(f"Using TensorRT version {trt.__version__}")
     if not os.path.exists(fname):
@@ -90,16 +91,28 @@ def main(
             f.write("version,norm,precision,throughput")
 
     trt.init_libnvinfer_plugins(None, "")
-    for batch_norm in [True, False]:
+    for groups in [-2, -1, 0, 1, 8]:
+        if groups == 0:
+            norm = "batch"
+        elif groups == -1:
+            norm = "custom-instance"
+        elif groups == -2:
+            norm = "instance"
+        elif groups == 1:
+            norm = "custom-group"
+        else:
+            norm = "group"
+
         for use_fp16 in [True, False]:
+            precision = "fp16" if use_fp16 else "fp32"
             print(
-                "Benchmarking with batch_norm={} and use_fp16={}".format(
-                    batch_norm, use_fp16
+                "Benchmarking with norm={} and precision={}".format(
+                    norm, precision
                 )
             )
             print("\tCreating serialized engine")
             serialized_engine = export_model(
-                batch_size, num_channels, frame_length, batch_norm, use_fp16
+                batch_size, num_channels, frame_length, groups, use_fp16
             )
 
             # build a TensorRT engine and do some inference
@@ -113,10 +126,10 @@ def main(
                 )
                 print(f"\tThroughput: {throughput} inf/s")
             with open(fname, "a") as f:
-                f.write("{},{},{},{}\n".format(
+                f.write("\n{},{},{},{}".format(
                     trt.__version__,
-                    "batch" if batch_norm else "group",
-                    "fp16" if use_fp16 else "fp32",
+                    norm,
+                    precision,
                     throughput
                 ))
 

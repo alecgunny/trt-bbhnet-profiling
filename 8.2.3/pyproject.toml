@@ -4,9 +4,6 @@ version = "0.0.1"
 description = "Profiling TensorRT inference of 1D convolutional network"
 authors = ["Alec Gunny"]
 
-[tool.pinto]
-cuda-version = "11.2"
-
 [tool.poetry.scripts]
 trtprof = "eighttwothree:main"
 

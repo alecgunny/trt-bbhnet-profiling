@@ -1,7 +1,7 @@
 [tool.pinto]
 steps = ["8.2.3:trtprof", "8.5.1:trtprof"]
 
-[tool.pinto.scripts.trtprof]
+[tool.typeo.scripts.trtprof]
 batch_size = 128
 num_channels = 2
 frame_length = 2048
